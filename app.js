@@ -23,6 +23,6 @@ server.on("request", async (req, res) => {
   }
 });
 
-server.listen(3000, () => {
-  console.log("Servidor corriendo en http://localhost:3000");
+server.listen(80, () => {
+  console.log("Servidor corriendo en http://localhost:80");
 });
