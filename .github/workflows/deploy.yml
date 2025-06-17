@@ -53,4 +53,6 @@ jobs:
             --registry-password ${{ secrets.AZURE_CLIENT_SECRET }} \
             --location ${{ secrets.ACI_REGION }} \
             --os-type Linux \
-            --restart-policy Always
+            --restart-policy Always \
+            --cpu 1 \
+            --memory 1.5
