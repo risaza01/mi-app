@@ -1,4 +1,4 @@
-name: Deploy to Azure Container Instances
+name: Deploy to Azure
 
 on:
   push:
@@ -10,37 +10,44 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout código
         uses: actions/checkout@v3
 
-      - name: Login to Azure
+      - name: Iniciar sesión en Azure
         uses: azure/login@v1
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          creds: |
+            {
+              "clientId": "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret": "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}",
+              "tenantId": "${{ secrets.AZURE_TENANT_ID }}"
+            }
 
-      - name: Login to Azure Container Registry
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ secrets.ACR_NAME }}.azurecr.io
-          username: ${{ secrets.AZURE_CLIENT_ID }}
-          password: ${{ secrets.AZURE_CLIENT_SECRET }}
-
-      - name: Build and Push Docker Image
+      - name: Iniciar sesión en Azure Container Registry (ACR)
         run: |
-          docker build -t ${{ secrets.ACR_NAME }}.azurecr.io/mi-app:latest .
-          docker push ${{ secrets.ACR_NAME }}.azurecr.io/mi-app:latest
+          az acr login --name ${{ secrets.ACR_LOGIN_SERVER }}
 
-      - name: Deploy to Azure Container Instance
+      - name: Construir y subir imagen Docker
+        run: |
+          docker build -t ${{ secrets.ACR_LOGIN_SERVER }}/mi-app:latest .
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/mi-app:latest
+
+      - name: Desplegar contenedor en ACI
         run: |
           az container create \
             --resource-group ${{ secrets.RESOURCE_GROUP }} \
             --name ${{ secrets.ACI_NAME }} \
-            --image ${{ secrets.ACR_NAME }}.azurecr.io/mi-app:latest \
-            --registry-login-server ${{ secrets.ACR_NAME }}.azurecr.io \
+            --image ${{ secrets.ACR_LOGIN_SERVER }}/mi-app:latest \
+            --dns-name-label ${{ secrets.ACI_DNS_LABEL }} \
+            --ports 80 \
+            --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
             --registry-username ${{ secrets.AZURE_CLIENT_ID }} \
             --registry-password ${{ secrets.AZURE_CLIENT_SECRET }} \
-            --dns-name-label mi-app-ricardo-123456 \
-            --ports 3000 \
-            --restart-policy Always
+            --location ${{ secrets.ACI_REGION }} \
+            --restart-policy Always \
+            --output none || \
+          az container update \
+            --name ${{ secrets.ACI_NAME }} \
+            --resource-group ${{ secrets.RESOURCE_GROUP }} \
+            --image ${{ secrets.ACR_LOGIN_SERVER }}/mi-app:latest
